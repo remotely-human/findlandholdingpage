@@ -178,6 +178,9 @@
         grid-template-columns: 1fr 1fr;
         gap: 24px;
         margin-top: 28px;
+        width: fit-content;
+        margin-left: auto;
+        margin-right: auto;
       }
     }
 
@@ -286,9 +289,7 @@
       <canvas id="subtitle-canvas"></canvas>
     </div>
     <div class="seal-row">
-      <!-- data-pan-x / data-pan-y: normalised -1…+1 equivalent mouse position -->
-      <!-- Top-left seal → terrain drifts toward top-left → camera NE → mouse top-right (+1,-1) -->
-      <button class="seal-btn" data-pan-x="1" data-pan-y="-1">
+      <button class="seal-btn" data-pan-x="1" data-pan-y="1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -298,8 +299,7 @@
           </div>
         </div>
       </button>
-      <!-- Top-right seal → terrain drifts toward top-right → camera NW → mouse top-left (-1,-1) -->
-      <button class="seal-btn" data-pan-x="-1" data-pan-y="-1">
+      <button class="seal-btn" data-pan-x="-1" data-pan-y="1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -309,8 +309,7 @@
           </div>
         </div>
       </button>
-      <!-- Bottom-left seal → terrain drifts toward bottom-left → camera SE → mouse bottom-right (+1,+1) -->
-      <button class="seal-btn" data-pan-x="1" data-pan-y="1">
+      <button class="seal-btn" data-pan-x="-1" data-pan-y="-1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -320,8 +319,7 @@
           </div>
         </div>
       </button>
-      <!-- Bottom-right seal → terrain drifts toward bottom-right → camera SW → mouse bottom-left (-1,+1) -->
-      <button class="seal-btn" data-pan-x="-1" data-pan-y="1">
+      <button class="seal-btn" data-pan-x="1" data-pan-y="-1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -337,7 +335,8 @@
 
   <!-- ═══ Footer ═══ -->
   <div id="footer">
-    <p>&#10022; &nbsp; Remotely Human Resources Limited &nbsp; &#10022;</p>
+    <p>Remotely Human</p>
+    <p>Resources Limited</p>
   </div>
 
   <script>
