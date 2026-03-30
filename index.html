@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FindLand.uk &mdash; Coming Soon</title>
+
+  <!-- Mapbox GL JS v3 -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+
+  <!-- Medieval fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+    @font-face {
+      font-family: 'Ghosthey';
+      src: url('assets/ghosthey/Ghosthey-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #0d0a04;
+      font-size: 16px;
+    }
+
+    /* ── Map ── */
+    #map {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+    }
+    /* Hide Mapbox attribution */
+    .mapboxgl-ctrl-bottom-left,
+    .mapboxgl-ctrl-bottom-right { display: none !important; }
+
+    /* ── Aged parchment overlay on the map ── */
+    #map-tint {
+      position: fixed;
+      inset: 0;
+      background: rgba(140, 95, 30, 0.18);
+      mix-blend-mode: multiply;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ── Vignette ── */
+    #vignette {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 75% at 50% 50%,
+        transparent 30%,
+        rgba(10, 6, 0, 0.55) 75%,
+        rgba(5, 3, 0, 0.82) 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ── Page header ── */
+    #header {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      text-align: center;
+    }
+    #title-wrap {
+      position: relative;
+      display: block;
+      width: fit-content;
+      margin: 0 auto;
+    }
+    #header h1 {
+      font-family: 'Ghosthey', serif;
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 400;
+      text-transform: none;
+      color: #f2d270;
+      letter-spacing: 0.08em;
+      visibility: hidden;
+    }
+    #title-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      filter:
+        drop-shadow(0 0 24px rgba(220, 170, 40, 0.55))
+        drop-shadow(0 0 48px rgba(200, 130, 20, 0.25))
+        drop-shadow(2px 3px 8px rgba(0,0,0,0.9));
+    }
+    #subtitle-wrap {
+      position: relative;
+      display: block;
+      width: fit-content;
+      margin: 4px auto 0;
+    }
+    #header .subtitle {
+      font-family: 'IM Fell DW Pica', serif;
+      font-style: italic;
+      font-size: clamp(1rem, 3vw, 2.3rem);
+      color: rgba(230, 195, 100, 0.75);
+      margin-top: 0;
+      letter-spacing: 0.12em;
+      visibility: hidden;
+    }
+    #subtitle-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      filter: drop-shadow(1px 1px 4px rgba(0,0,0,0.9));
+    }
+    #header .ornament-line {
+      font-family: 'IM Fell DW Pica', serif;
+      color: rgba(210, 165, 60, 0.45);
+      font-size: 1.1rem;
+      letter-spacing: 0.5em;
+      margin-top: 6px;
+    }
+
+    /* ── Footer ── */
+    #footer {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      text-align: center;
+    }
+    #footer p {
+      font-family: 'IM Fell DW Pica', serif;
+      font-style: italic;
+      font-size: 0.82rem;
+      color: rgba(220, 180, 80, 0.5);
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+      letter-spacing: 0.15em;
+    }
+
+    /* ── Wax Seal Buttons ── */
+
+    .seal-row {
+      display: flex;
+      gap: 36px;
+      justify-content: center;
+      margin-top: 36px;
+    }
+
+    .seal-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.25s ease;
+    }
+    .seal-btn:hover  { transform: translateY(-4px) scale(1.04); }
+    .seal-btn:active { transform: translateY(-1px) scale(1.01); }
+
+    .seal {
+      width: 110px;
+      height: 110px;
+      position: relative;
+      filter:
+        drop-shadow(0 6px 18px rgba(0,0,0,0.8))
+        drop-shadow(0 0 10px rgba(160,20,20,0.25));
+    }
+
+    /* Irregular drip edge — two stacked radial blobs */
+    .seal-wax {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(ellipse 94% 96% at 48% 46%,
+        #ab1e3a 0%,
+        #770e23 55%,
+        #510716 80%,
+        #6e0a1e 100%
+      );
+      /* Slightly uneven edge via box-shadow inset highlight */
+      box-shadow:
+        inset  3px  4px 10px rgba(220, 60, 40, 0.35),
+        inset -2px -3px  8px rgba(0,0,0,0.45),
+        inset  0   0   22px rgba(0,0,0,0.25);
+      /* Rough edge via clip-path polygon approximating a blob */
+      clip-path: polygon(
+        50%  0%,  62%  2%,  74%  5%,  84% 11%,  92% 18%,
+        98% 27%, 100% 38%, 99% 50%,  97% 61%,  92% 72%,
+        84% 81%,  74% 88%,  62% 93%,  50% 95%,  38% 93%,
+        26% 88%,  16% 81%,   8% 72%,   3% 61%,   1% 50%,
+         2% 38%,   6% 27%,  12% 18%,  20% 11%,  30%  5%,  40%  2%
+      );
+    }
+
+    /* Raised rim ring */
+    .seal-rim {
+      position: absolute;
+      inset: 7px;
+      border-radius: 50%;
+      border: 2px solid rgba(220, 80, 60, 0.35);
+      box-shadow:
+        inset 0 0 6px rgba(0,0,0,0.4),
+        0 0 4px rgba(200,50,30,0.2);
+      pointer-events: none;
+    }
+
+    /* Inner content area */
+    .seal-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .seal-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+      color: rgba(255, 200, 180, 0.55);
+      display: block;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    }
+
+    .seal-label {
+      font-family: 'IM Fell DW Pica', serif;
+      font-style: italic;
+      font-size: 0.68rem;
+      color: rgba(255, 210, 190, 0.85);
+      letter-spacing: 0.08em;
+      line-height: 1.5;
+      text-align: center;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+  <div id="map-tint"></div>
+  <div id="vignette"></div>
+
+  <!-- ═══ Header ═══ -->
+  <div id="header">
+    <div id="title-wrap">
+      <h1>Find Land</h1>
+      <canvas id="title-canvas"></canvas>
+    </div>
+    <div id="subtitle-wrap">
+      <p class="subtitle">Modern tools for a medieval system</p>
+      <canvas id="subtitle-canvas"></canvas>
+    </div>
+    <div class="seal-row">
+      <button class="seal-btn">
+        <div class="seal">
+          <div class="seal-wax"></div>
+          <div class="seal-rim"></div>
+          <div class="seal-face">
+            <span class="seal-icon">⚜</span>
+            <span class="seal-label">Renters</span>
+          </div>
+        </div>
+      </button>
+      <button class="seal-btn">
+        <div class="seal">
+          <div class="seal-wax"></div>
+          <div class="seal-rim"></div>
+          <div class="seal-face">
+            <span class="seal-icon">⚜</span>
+            <span class="seal-label">Buyers</span>
+          </div>
+        </div>
+      </button>
+      <button class="seal-btn">
+        <div class="seal">
+          <div class="seal-wax"></div>
+          <div class="seal-rim"></div>
+          <div class="seal-face">
+            <span class="seal-icon">⚜</span>
+            <span class="seal-label">Reporters</span>
+          </div>
+        </div>
+      </button>
+      <button class="seal-btn">
+        <div class="seal">
+          <div class="seal-wax"></div>
+          <div class="seal-rim"></div>
+          <div class="seal-face">
+            <span class="seal-icon">⚜</span>
+            <span class="seal-label">Researchers</span>
+          </div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ═══ Footer ═══ -->
+  <div id="footer">
+    <p>&#10022; &nbsp; Register thy interest below &nbsp; &#10022;</p>
+  </div>
+
+  <script>
+    // ================================================================
+    //  IMPORTANT: Replace the token below with your Mapbox access token
+    //  Get one free at https://account.mapbox.com
+    // ================================================================
+    mapboxgl.accessToken = 'pk.eyJ1IjoidG9tbGlubmV5IiwiYSI6ImNsbmcxZXpxeTB2bW0yaW1udmc2bnNicHUifQ.-ewey-Bo_YV3tihZi9wqIg';
+
+    // ── Embedded custom map style ──
+    const STYLE = {"version":8,"name":"westgeo","metadata":{"mapbox:type":"default","mapbox:trackposition":false,"mapbox:uiParadigm":"global","mapbox:decompiler":{"id":"clngfmm8z040f01r7a6r7fyfy","componentVersion":"18.0.0","strata":[{"id":"outdoors-v12","order":[["land-and-water","land"],["land-and-water","water"],["land-and-water","built"],["land-and-water","terrain-labels"],["place-labels","place-labels"],"constituencies","building","road","walkways","tmp-file"]}],"components":{"place-labels":"18.0.0","land-and-water":"18.0.0"},"propConfig":{"place-labels":{"continentsSize":0.8,"states":false,"settlementsMinorSize":1.2,"settlementSubdivisions":true,"settlementsMajorSize":1.4,"colorPlaceLabel":"hsl(60, 16%, 17%)","settlementSubdivisionsSize":1.1,"colorBase":"hsl(60, 0%, 100%)","countries":false,"countriesSize":0.8,"settlementSubdivisionsDensity":3,"settlementsMinorFont":["IM FELL DW Pica Regular","Arial Unicode MS Regular"],"settlementsMajorFont":["IM FELL DW Pica Regular","Arial Unicode MS Regular"],"settlementsDensity":4,"settlementSubdivisionsFont":["IM FELL DW Pica Regular","Arial Unicode MS Regular"],"continents":false},"land-and-water":{"hillshadeStyle":"Outdoors","landStyle":"Outdoors","colorGreenspace":"hsl(98, 14%, 55%)","transitionLandOnZoom":false,"colorBase":"hsl(60, 0%, 100%)","colorWater":"hsl(226, 52%, 84%)","contours":true,"bathymetry":true}}},"mapbox:thumb":"data:image/webp;base64,UklGRlITAABXRUJQVlA4WAoAAAAgAAAAOwAAOwAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZWUDhMYxEAAC87wA4ADXUhov8B79v/GY78//+o7lXdHXOSyZgZrG0bz5dt+/W6pMu2bdtY++m1PUbGM0kmTroadcx2ZUXBbSRJkkSLzDq79/r/L2dmu7sqM8K83bZ22rZtWym/bymlurU2bNu2jd86v9m2Gvoc3Taaa20s5X1yMJAkJQ65D8yAK+YNm1aza9XuCgB0lul+umIAJDQ36QAM4qzgTkoyAQA+CjS5iBQXOciBLKMGeKSAA5CAogXGFAw96dSwfN/euU3XzHGxvYH9cuK4//QcFSQAADhzUAIA1E1LpXpwlAJz5ERYlslbAWaYFAaizQAPBtpXyu/7wRaskWff6przKtsoz4DB8YSTAFqqJUIAgUQECmXjScWI1m+779hWl5739cjfmQ1H40otbQBSm0EHakRK0QNDSdQ1S6GiyrCrUsNgOk4AAACUi0wBAI5o0/2U8f3M1dXLrKp62x6d4xzbCABHm20EZHksBgALKR+bjWWl4T23f2ujo4vpSo1mlZ2AeMJWOGgwwCGDgwsn5WIFgERaMNlDKsngdTEAwSY95sQBmOz5edq97f71vVA55ypTbo0YqwhoLVE2ALQoCEuk1gFwhAjoS4ler4XOO/qHftjmwNLt+wUWetIBoaZwpUSOKpaiB1IIJEhQiAWAslF4KHCeO1tVNU0nelKAVNyVAgBAW6ubc3DudXt902ziNvGVfBWHHPFaCxQk8lXFMJ4AgFBFkIojl/WFaXPNQzqFLq6B6/vhZt2wiiMeD40IVhLJxSjFWGUA8FbRlYyQr4txKi4g0CQhl4gnAIAwAACUSNFqAhlSJBeJDMRHjDGtSQQQ9iW5RGA7TFVyyM6eUu6PbvPlqvv11GsS96rJpqtSsKmCwpVv2+9bfZVHE5EmgLKvgCp/rvgbU/cHZAJ06OSqGppmRVc6Ds7vul3JIjPnnj/nAAA8PYLDQRwALUZIJkoIVjIDPJJLj7YpsVtcDB31sXNkYO+2nwktWJkAhpp/NnsErHY2rd5vnZ/j4bkApOOGJsYKVTa5bw8DIfWl0ZpksIPs8FURyV/JkZJSta91vR+S9zUHmSAgKDJFy8oKAADQcHt04cpLSlGRSLiTtNa/Pvu3zn4EIykZzo9tY/Vosx/O+PzKJniNyFX1/TxWdbm58HZp5LgrO/vDCQdK7KH6ZncFuCop8i38pEcmdM7GOnn42v+vmK3MplWrBgDGN0ancn+69lYSAJNNbm824a8AoL3VRIKQEfoTJfaQxEPve7zNx84B8LtjCFQ1aSgJBGD8uNsz9vV9ffh9D6JUAshxd7qKpohUL81yKk4nSkloAAAFoSY5uDACgxqKDQARjwrh2ugYs8ABAB7yLAwQIEglJAGBajKRZ/mySo67WporKgAADDaDVwKAVOJu6/hxn5t4RAEAHIlEV0qgiUPjS6PjLEhnShSE5SfDQQCgBTVYBCUGIhKBHlDboZBWr7jctGvM7HEMJJqrcBMASGTUd9LpwYQBsAoAsIPCEjVAkEkwbml2FxkGKJQyOCy4ciLEAYgyNJEK3aMQSCQDoDUle3LwdmLP6wkAPJxoago3AYCLGpvujdBYhgwAAAgEMICFmdDcPJFiwE7hSiqEaC2QciDMWdkaqqpJrfVggCPS5CC+Qn0/2nW5sm+U4ytzDCcamiJNAOCTlq98dxQVApf1yCTAVlqbVV65KkfpG+GvQk0EfaMA5e1RCH5e4Ug7IRTirBCBygB53298Lt7rOPzx73/8eUNrzTEqWqRgEwDYaemq+keZZWFnXfSn5EWePbS4NUAwlnAv1SUrBRBAaA0uc3VCDjoY6wE10JuOR6jN12P++4k72atMO76GAA8ymQEFMNhE40p9o6R4bhNT050OABw0NMJRVAD5uFdHI0KcLRBQeS4kKdicSRgQCVyr/9rr9f/umyseRy/9/8Y0ucqEYhLldMwYkKCQm2QitRoLt637KTGV8JOzAjj0ei4K8WWAFOEDceSEl1MkQSFaZFDIZDbPvu87+/x/qr33XW799LxbXegMAGYNABK1NgebgIK4PwoAACArRJMBQibNQT4YRqKBAQThA65KWlVzG2+lcYHNoGMkRcNL/Nlq/OfJnTR6P/2ZHH5z1kUAAA8AYGIgpaapRjYiAcxqT1bqLzdvnHfxGgAABEJi9mgp22Xju6N4JQotFGohCMDBOanhekG+Xvvp90MTBAAoVmsTiQHFDyFEa1eSFz6ObB2zYnuDq7F24pGHuV3ZY5VLgaCMQLlc5mOafT+i3Y/mBQAAXkkJcQEAQCohCqCyyXovctzb8bH81vCt2ejlQYeLT+ZKV5lw5u48RC2r3o8ZzyXnmI2tce0+1WW6RgzJVbXI2cbEKAU8aF8AzMeW39i2R/d1z3bji+PgG6uXLqSAxKYIAFKLoNHmYBOJ5HInbSYANSIYpDoY6sLu75dOPJaXj51raxB7Lq+7n87N2//7urM3Jdrc1KpfxwIgJlXI7bLvF+99/uXEc6U+Mdn09dkk6UF8Qv44xIQvV2ZW7SQAmK8ujMNKfku6mhgAACoZ4shzcdPP89GvV6evl2cv52jIc3dK+0qd6r50RRb6UtRfvlq67f70719dup2piWeqr84mFsQLUFl+vJGckhVeCbCXJSu/ad+jEFWWGwfHHkuv+nrnQClcz668nb30ekLl7lGizZ2rGkiXiQUNCfkkkJtWvB576X789H0ltCZ3x/T//78lhjEnANFSOgdGE/NbAcBI80uz2bodihie1evbr1+8HVv48xzejxvPxXn7etd5u4ZepbWprdXwKAkh9EKYtyY8l1vLxyHSje3rLeddntXrul5rPO8sXdbKFE6BIgL0b5uvXKPD52g2EWwCgMuruT5rd8yoUAys21oCoO289+RjpbCv5s475a+Xa5/LVeNgavWM0Deiqal55cmUsYRF9oF9275tze8oNOckpMfugY//VM/5wmhf/fXGHz7/FOYYxMh4oEVsKXK9CMSEhJBU0wScWT0LYnDl1lEAYOf3i//4+HtLDhvk0bHb/vnP678+yhPHUCIooaaRWQMcBLffd7dc1ia3zVu387yhtLavOr7NnG2G9lWWdsV2+P/ZAMBSsWp4vOm0xCHuaubCys8/L0tclQockGYSJjTWobEetHKJrHfiY/voc2kzHGvILtcXPpeufL1mAphMMLbDVkCEQYC0xq8dLWAgkbL6+4UXnouNxx1Xr2fUdIHbqQ+O0i4aYx+As83lclJXtemvP63cdn5zTkKSjsEUsTPN2HovvOau3s7duJ1pfT3Bjnvp49j828W7r4cBDoAWAOAAgF46jSRsiDVnxo6+RunXcxRNMK5X6Oe/t3095+nABIULBKhFy0XkuN95u+TlqlYDI8oCuDerA7Nvg42dLLMjPnc7ERdjrQeF/vGf+n1r9JznXKZXU9twuXYTyTWoX5Pk/djG17OvRBKXcff9wPqxe+Dj3xBU0mFngEcAgTD+i8d9/PMfG7by0mrKBZ2WelfF2ITKetBx7/tFAxpruPDr/SV//yGQdqYVgYtVIgwAOicQH9vhbW1mmwbnqJT2eYcHsRl7cByX1rDzevGFxzECGbXxx1fDSIzGX/M2uJ1y3E4d/H6eoCxzsZQXxuFDRgilqtdzHZ//jP3+sG5Vuri7hVlzAs6OzhlvfD0D5Mb+v57/eNXXG0efy+qYFdb4bViF/6SznbePbGuzYye4Rl7eknJ2ZYMEODc6Yb6eTH/+yTN282tYXnAfNqZsKM0F5+2C/bky/fWKziFlupkAANIFADyrP7ZvnHoeWfl65Pa2rWIcTaB84XqV4ORjGZDwgXQnVv5ra1HSy0CJb5uux7GZ/98AAAAAgIeVUFuxRRUUWdUoqddL4UJLIPCm0UQiBgiKcAKoO287/Pyfnkherrm4hnaiunVJif/9u9rztv79RvS8B9g+yidmX6gCRXiwGXwu6Pdjyr5VPCYAIJECe5GhkBIpxUYKZLIVhSQAANA9+4D+/WSkGQCA5ub+FDCJilTBALDz+6U//PXH2rlQul4dhoYlSMnZj78tPh4+8/xBZ0JurBlxrAIACb5Kke+sKtN0NyooWQcLW9Ngr8prQFnoD0l4azNAiwoAAJytb1wv9FyvxW/HWdqdrduxHLbXY57j7juPH87dTkkA9qb75GoAwFaWrYrg+OwDAOCY8wAAAMAj1odNAWWTwNL3I3/4/OO+95OXlW5es00H9pt8m/7vdmxDR9du50e3tfp5R1S8J5077hBjDk+cC4EKAAAAAADgiW6ky7zYCvwV36////mvVX8+v1ypH3/b/3p80+vpK3grSA4v3k8efSwaifDjyMS2kdx2Tj8XE4noyk9u1gwv+FXOyZHnYvfj39n70YDs66AVQD8cbWQA3/7nxx3HvQuPB6PHvYPtp4XOMj0NAwEmZ8fe5LaZGfuxfbX+vG35+7GXWg3h1UhCQRoKNEhMafPP84Vx0HO5VsghRyKuanrys1c8TlWMfb/Wo2a6yjnn7DjyfvAff/16x6/vn2uVhIH/oQHr0QpAQp6ev508ebnumKPJ66XScT+QSDyF83cd97rb0zHddD8eZxfcuPH3LxwpS+HDFJ7HFCZwHEWU4IH0etoDP5KXK9e2VaDIRXbSI0HFGsyCCo1ZzYLKjFlgYJxtbxJnjjHHtdlvglEKlNLa1XX7bgYBNCMCF/zwwZrXNd3hj0WvGgDiiYbmh5EagYExq1lgzFgNjBk0fhjMLRhNHEAfjDraSgFvL8m+2+naNew87suOvdmxk9x2psamlEyLY9We9mXVrcv5Ta/nzPMuAEgmOBvEYgaVGVis1YxLQWMdjxf6dr4nTh3zQEwnkxEDwGi89v3AgY//OlrXn7f71zC4RsE1unY7/7HfX6na0X39yHPxw78+d7bJEQGHjrOjNfCkt8/ej00f9wGFWI8cBQAApSIdnn0c8a7+2tdTwOS22XLerabN23O0PvpY3P79nLMN4OHmeLB6Cq9s+3n+9OwBea5t6mhlKwCgIwdbU2JMdchgKccei7zRv98AEts0NCcAACxOHFz5achquEylTHJIspdbo6is8cbE1cf/xvZ1RxsOjsbzjnP3ky/ejo7vG0ByzAIdAwCwRDyN7eXVzEik1EiBCog2SSDFWL2bf14N/Pfb5JjJ0GDD2p8nW897QmvuxvV8Pgcj2yoAAJ2JD86eiie3C7ORmyMyAADuCgCGUnpGTUtq2zVjowIk6crt7MXbqfnHg5tfz45v69YP3oLE9aYnt8mEDpN16MGExgDjXOBApOsy2SXgSI3da9dzr/p6s/G84+z9pJGwiJYlnsJF7yjW4JVJqRWyJVU2FYU057xrkBwzBYwv3E++/uvt8JwAcsVSLKKF8Wdm/UTvBkNUVKM9Yd+mq1cF2AshIBd7KgAAZuM1f94b/Ph7YpsCIBsAAKhYk5mxZWHViTCP4PF8XWiLm0QNdw5XaI1tNryvjW5rU9vmxc8/OaoHlUesO8HqH7Nxr3FyzAAKExQAUDXnp7YtYTpbkjjS9Chfb4jwvNg79lxju2Hsl7ZZYkyLlK6Swlh9OidkTfznnXwOLI1zENiLwNSfkNZ4/HoBkMFgAwB4V98M2bHvW33LQOW+bvaPA+c2DW1b8jarzT5JO0ulNkOX02SNyZpI54isCWklsBTmEAC60+mg6GymJJEFoYbxxPgcxbbZ/8HQiLUgAAj95q/fT40NMAgAFsXvnjUA2FCfIm3T4LYl7atywp6d7EJ5TyK9w2UcO+4lTWIApNVDEuCtjMhVKIkEwzqTE601+01wIwQNNgBAxZocuv9A9b7+8bf6457O12Nk9RY02SkY3Epy7FafQ9IeaS1ykabHSHmtXA5ghqERwMo1NEe3WJFlQAXQ1fr52eQqEcXfCiiuHF+NeS7QNX4q5XJKKTBQUF3490eF0QKADQysFrangQoAAA==","mapbox:autocomposite":true,"mapbox:sdk-support":{"js":"3.0.0","android":"11.0.0","ios":"11.0.0"},"mapbox:origin":"outdoors-v12","mapbox:groups":{"Land & water, land":{"name":"Land & water, land","collapsed":true},"Land & water, water":{"name":"Land & water, water","collapsed":true},"Land & water, built":{"name":"Land & water, built","collapsed":false},"Land & water, terrain-labels":{"name":"Land & water, terrain-labels","collapsed":true},"Place labels, place-labels":{"name":"Place labels, place-labels","collapsed":true}}},"center":[-0.07587598423151576,51.5054744218082],"zoom":16.02188547728357,"bearing":-18.404760960127078,"pitch":67.63441348236886,"light":{"anchor":"map"},"lights":[],"terrain":{"source":"mapbox-dem","exaggeration":["interpolate",["linear"],["zoom"],8,5,22,0]},"fog":{"color":"hsl(0, 0%, 72%)","space-color":["interpolate",["linear"],["zoom"],4,"#010b19",7,"#367ab9"],"star-intensity":["interpolate",["linear"],["zoom"],5,0.35,6,0],"high-color":"hsl(184, 89%, 90%)"},"sources":{"mapbox-dem":{"url":"mapbox://mapbox.mapbox-terrain-dem-v1","type":"raster-dem","tileSize":512},"composite":{"url":"mapbox://mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2,tomlinney.constituencies,tomlinney.msoa_bfc_2021_d9449","type":"vector"}},"sprite":"mapbox://sprites/tomlinney/clngfmm8z040f01r7a6r7fyfy/3a831puchrsh0xlddijxpbk8p","glyphs":"mapbox://fonts/mapbox/{fontstack}/{range}.pbf","projection":{"name":"globe"},"layers":[{"id":"land","type":"background","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"layout":{},"paint":{"background-color":"hsl(60, 0%, 100%)"}},{"id":"landcover","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"landcover","maxzoom":12,"layout":{},"paint":{"fill-color":["match",["get","class"],"wood","hsla(103, 9%, 82%, 0.8)","scrub","hsla(98, 6%, 90%, 0.6)","crop","hsla(68, 14%, 92%, 0.6)","grass","hsla(98, 9%, 96%, 0.6)","snow","hsl(226, 22%, 97%)","hsl(98, 11%, 89%)"],"fill-opacity":["interpolate",["exponential",1.5],["zoom"],8,0.8,12,0],"fill-antialias":false}},{"id":"national-park","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"landuse_overlay","minzoom":5,"filter":["==",["get","class"],"national_park"],"layout":{},"paint":{"fill-color":"hsl(98, 7%, 53%)","fill-opacity":["interpolate",["linear"],["zoom"],5,0,6,0.6,12,0.2]}},{"id":"national-park_tint-band","type":"line","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"landuse_overlay","minzoom":9,"filter":["==",["get","class"],"national_park"],"layout":{},"paint":{"line-color":"hsl(98, 7%, 53%)","line-width":["interpolate",["exponential",1.5],["zoom"],9,1,14,8],"line-blur":["interpolate",["exponential",1.5],["zoom"],9,1,14,8]}},{"id":"landuse","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"landuse","minzoom":5,"filter":["all",[">=",["to-number",["get","sizerank"]],0],["match",["get","class"],["agriculture","wood","grass","scrub","glacier","pitch","sand"],["step",["zoom"],false,11,true],"residential",["step",["zoom"],true,10,false],["park","airport"],["step",["zoom"],false,8,["case",["==",["get","sizerank"],1],true,false],10,true],"rock",["step",["zoom"],false,11,true],"cemetery",["step",["zoom"],false,11,true],false],["<=",["-",["to-number",["get","sizerank"]],["interpolate",["exponential",1.5],["zoom"],12,0,18,14]],14]],"layout":{},"paint":{"fill-color":["match",["get","class"],"wood","hsla(103, 9%, 82%, 0.8)","scrub","hsla(98, 6%, 90%, 0.6)","agriculture","hsla(98, 9%, 96%, 0.6)","park",["match",["get","type"],["garden","playground","zoo"],"hsl(98, 7%, 53%)","hsl(98, 14%, 55%)"],"grass","hsla(98, 9%, 96%, 0.6)","cemetery","hsl(98, 10%, 60%)","glacier","hsl(226, 22%, 97%)","pitch","hsl(88, 24%, 57%)","sand","hsl(98, 19%, 94%)","rock","hsl(60, 0%, 100%)","hsl(60, 0%, 95%)"],"fill-opacity":["interpolate",["linear"],["zoom"],8,["match",["get","class"],"residential",0.8,0.2],10,["match",["get","class"],"residential",0,1]],"fill-antialias":false}},{"id":"hillshade","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"hillshade","maxzoom":16,"filter":["all",["step",["zoom"],["==",["get","class"],"shadow"],11,true],["match",["get","level"],89,true,78,["step",["zoom"],false,5,true],67,["step",["zoom"],false,9,true],56,["step",["zoom"],false,6,true],94,["step",["zoom"],false,11,true],90,["step",["zoom"],false,12,true],false]],"layout":{},"paint":{"fill-color":["interpolate",["linear"],["zoom"],14,["match",["get","class"],"shadow","hsla(98, 7%, 24%, 0.08)","hsla(60, 0%, 100%, 0.14)"],16,["match",["get","class"],"shadow","hsla(98, 7%, 24%, 0)","hsla(60, 0%, 100%, 0)"]],"fill-antialias":false}},{"id":"contour-line","type":"line","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"contour","minzoom":11,"filter":["!=",["get","index"],-1],"layout":{},"paint":{"line-opacity":["interpolate",["linear"],["zoom"],11,["match",["get","index"],[1,2],0.15,0.3],13,["match",["get","index"],[1,2],0.3,0.5]],"line-color":"hsl(60, 0%, 46%)","line-width":["interpolate",["linear"],["zoom"],13,["match",["get","index"],[1,2],0.5,0.6],16,["match",["get","index"],[1,2],0.8,1.2]]}},{"id":"cliff","type":"line","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"structure","minzoom":15,"filter":["==",["get","class"],"cliff"],"layout":{"line-cap":"round","line-join":"round"},"paint":{"line-opacity":["interpolate",["linear"],["zoom"],15,0,15.25,1],"line-width":10,"line-pattern":"cliff"}},{"id":"pitch-outline","type":"line","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, land"},"source":"composite","source-layer":"landuse","minzoom":15,"filter":["==",["get","class"],"pitch"],"layout":{},"paint":{"line-color":"hsl(88, 19%, 50%)"}},{"id":"waterway-shadow","type":"line","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, water"},"source":"composite","source-layer":"waterway","minzoom":10,"layout":{"line-cap":["step",["zoom"],"butt",11,"round"],"line-join":["step",["zoom"],"miter",11,"round"]},"paint":{"line-color":"hsl(245, 56%, 83%)","line-width":["interpolate",["exponential",1.3],["zoom"],9,["match",["get","class"],["canal","river"],0.1,0],20,["match",["get","class"],["canal","river"],8,3]],"line-translate":["interpolate",["exponential",1.2],["zoom"],7,["literal",[0,0]],16,["literal",[-1,-1]]],"line-translate-anchor":"viewport","line-opacity":["interpolate",["linear"],["zoom"],8,0,8.5,1]}},{"id":"water-shadow","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, water"},"source":"composite","source-layer":"water","minzoom":10,"layout":{},"paint":{"fill-color":"hsl(245, 56%, 83%)","fill-translate":["interpolate",["exponential",1.2],["zoom"],7,["literal",[0,0]],16,["literal",[-1,-1]]],"fill-translate-anchor":"viewport"}},{"id":"waterway","type":"line","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, water"},"source":"composite","source-layer":"waterway","minzoom":8,"layout":{"line-cap":["step",["zoom"],"butt",11,"round"],"line-join":["step",["zoom"],"miter",11,"round"]},"paint":{"line-color":"hsl(226, 52%, 84%)","line-width":["interpolate",["exponential",1.3],["zoom"],9,["match",["get","class"],["canal","river"],0.1,0],20,["match",["get","class"],["canal","river"],8,3]],"line-opacity":["interpolate",["linear"],["zoom"],8,0,8.5,1]}},{"id":"water","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, water"},"source":"composite","source-layer":"water","layout":{},"paint":{"fill-color":"hsl(226, 52%, 84%)"}},{"id":"water-depth","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, water"},"source":"composite","source-layer":"depth","maxzoom":8,"layout":{},"paint":{"fill-antialias":false,"fill-color":["interpolate",["linear"],["zoom"],6,["interpolate",["linear"],["get","min_depth"],0,"hsla(226, 52%, 84%, 0.35)",200,"hsla(226, 52%, 76%, 0.35)",7000,"hsla(226, 52%, 67%, 0.35)"],8,["interpolate",["linear"],["get","min_depth"],0,"hsla(226, 52%, 84%, 0)",200,"hsla(226, 52%, 76%, 0)",7000,"hsla(226, 52%, 63%, 0)"]]}},{"id":"wetland","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, water"},"source":"composite","source-layer":"landuse_overlay","minzoom":5,"filter":["match",["get","class"],["wetland","wetland_noveg"],true,false],"paint":{"fill-color":"hsl(215, 15%, 88%)","fill-opacity":["interpolate",["linear"],["zoom"],10,0.25,10.5,0.15]}},{"id":"wetland-pattern","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, water"},"source":"composite","source-layer":"landuse_overlay","minzoom":5,"filter":["match",["get","class"],["wetland","wetland_noveg"],true,false],"paint":{"fill-color":"hsl(215, 15%, 88%)","fill-opacity":["interpolate",["linear"],["zoom"],10,0,10.5,1],"fill-pattern":"wetland","fill-translate-anchor":"viewport"}},{"id":"land-structure-polygon","type":"fill","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, built"},"source":"composite","source-layer":"structure","minzoom":13,"filter":["all",["==",["get","class"],"land"],["==",["geometry-type"],"Polygon"]],"layout":{},"paint":{"fill-color":"hsl(60, 0%, 100%)"}},{"id":"land-structure-line","type":"line","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, built"},"source":"composite","source-layer":"structure","minzoom":13,"filter":["all",["==",["get","class"],"land"],["==",["geometry-type"],"LineString"]],"layout":{"line-cap":"square"},"paint":{"line-width":["interpolate",["exponential",1.99],["zoom"],14,0.75,20,40],"line-color":"hsl(60, 0%, 100%)"}},{"id":"contour-label","type":"symbol","metadata":{"mapbox:featureComponent":"land-and-water","mapbox:group":"Land & water, terrain-labels"},"source":"composite","source-layer":"contour","minzoom":11,"filter":["all",["any",["==",["get","index"],10],["==",["get","index"],5]],["step",["pitch"],true,50,["<",["distance-from-center"],1],60,["<",["distance-from-center"],1.5],70,["<",["distance-from-center"],2]]],"layout":{"text-field":["concat",["get","ele"]," m"],"symbol-placement":"line","text-pitch-alignment":"viewport","text-max-angle":25,"text-padding":5,"text-font":["DIN Pro Medium","Arial Unicode MS Regular"],"text-size":["interpolate",["linear"],["zoom"],15,9.5,20,12]},"paint":{"text-color":"hsl(60, 0%, 46%)","text-halo-width":1,"text-halo-color":"hsl(60, 0%, 100%)"}},{"id":"settlement-subdivision-label","type":"symbol","metadata":{"mapbox:featureComponent":"place-labels","mapbox:group":"Place labels, place-labels"},"source":"composite","source-layer":"place_label","minzoom":10,"maxzoom":15,"filter":["all",["match",["get","class"],["settlement_subdivision","disputed_settlement_subdivision"],["match",["get","worldview"],["all","US"],true,false],false],["<=",["get","filterrank"],3],["step",["pitch"],true,50,["<",["distance-from-center"],3],60,["<",["distance-from-center"],4],70,["<",["distance-from-center"],5]]],"layout":{"text-field":["coalesce",["get","name_en"],["get","name"]],"text-transform":"uppercase","text-font":["IM FELL DW Pica Regular","Arial Unicode MS Regular"],"text-letter-spacing":["match",["get","type"],"suburb",0.15,0.05],"text-max-width":7,"text-padding":3,"text-size":["interpolate",["cubic-bezier",0.5,0,1,1],["zoom"],11,["match",["get","type"],"suburb",12.100000000000001,11.55],15,["match",["get","type"],"suburb",16.5,15.400000000000002]]},"paint":{"text-halo-color":"hsla(60, 5%, 100%, 0.75)","text-halo-width":1,"text-color":"hsl(60, 16%, 28%)","text-halo-blur":0.5}},{"id":"settlement-minor-label","type":"symbol","metadata":{"mapbox:featureComponent":"place-labels","mapbox:group":"Place labels, place-labels"},"source":"composite","source-layer":"place_label","minzoom":2,"maxzoom":13,"filter":["all",["<=",["get","filterrank"],4],["match",["get","class"],["settlement","disputed_settlement"],["match",["get","worldview"],["all","US"],true,false],false],["step",["zoom"],[">",["get","symbolrank"],6],4,[">=",["get","symbolrank"],7],6,[">=",["get","symbolrank"],8],7,[">=",["get","symbolrank"],10],10,[">=",["get","symbolrank"],11],11,[">=",["get","symbolrank"],13],12,[">=",["get","symbolrank"],15]],["step",["pitch"],true,50,["<",["distance-from-center"],3],60,["<",["distance-from-center"],4],70,["<",["distance-from-center"],5]]],"layout":{"text-line-height":1.1,"text-size":["interpolate",["cubic-bezier",0.2,0,0.9,1],["zoom"],3,["step",["get","symbolrank"],13.2,9,12],6,["step",["get","symbolrank"],16.8,9,14.399999999999999,12,12],8,["step",["get","symbolrank"],19.2,9,16.8,12,14.399999999999999,15,12],13,["step",["get","symbolrank"],26.4,9,24,12,19.2,15,16.8]],"text-radial-offset":["step",["zoom"],["match",["get","capital"],2,0.6,0.55],8,0],"symbol-sort-key":["get","symbolrank"],"icon-image":["step",["zoom"],["case",["==",["get","capital"],2],"border-dot-13",["step",["get","symbolrank"],"dot-11",9,"dot-10",11,"dot-9"]],8,""],"text-font":["IM FELL DW Pica Regular","Arial Unicode MS Regular"],"text-justify":"auto","text-anchor":["step",["zoom"],["get","text_anchor"],8,"center"],"text-field":["coalesce",["get","name_en"],["get","name"]],"text-max-width":7},"paint":{"text-color":"hsl(60, 16%, 0%)","text-halo-color":"hsl(60, 5%, 100%)","text-halo-width":1,"text-halo-blur":1}},{"id":"settlement-major-label","type":"symbol","metadata":{"mapbox:featureComponent":"place-labels","mapbox:group":"Place labels, place-labels"},"source":"composite","source-layer":"place_label","minzoom":2,"maxzoom":15,"filter":["all",["<=",["get","filterrank"],4],["match",["get","class"],["settlement","disputed_settlement"],["match",["get","worldview"],["all","US"],true,false],false],["step",["zoom"],false,2,["<=",["get","symbolrank"],6],4,["<",["get","symbolrank"],7],6,["<",["get","symbolrank"],8],7,["<",["get","symbolrank"],10],10,["<",["get","symbolrank"],11],11,["<",["get","symbolrank"],13],12,["<",["get","symbolrank"],15],13,[">=",["get","symbolrank"],11],14,[">=",["get","symbolrank"],15]],["step",["pitch"],true,50,["<",["distance-from-center"],3],60,["<",["distance-from-center"],4],70,["<",["distance-from-center"],5]]],"layout":{"text-line-height":1.1,"text-size":["interpolate",["cubic-bezier",0.2,0,0.9,1],["zoom"],3,["step",["get","symbolrank"],18.2,6,15.399999999999999],6,["step",["get","symbolrank"],25.2,6,22.4,7,19.599999999999998],8,["step",["get","symbolrank"],28,9,22.4,10,19.599999999999998],15,["step",["get","symbolrank"],33.599999999999994,9,28,12,22.4,15,19.599999999999998]],"text-radial-offset":["step",["zoom"],["match",["get","capital"],2,0.6,0.55],8,0],"symbol-sort-key":["get","symbolrank"],"icon-image":["step",["zoom"],["case",["==",["get","capital"],2],"border-dot-13",["step",["get","symbolrank"],"dot-11",9,"dot-10",11,"dot-9"]],8,""],"text-font":["IM FELL DW Pica Regular","Arial Unicode MS Regular"],"text-justify":["step",["zoom"],["match",["get","text_anchor"],["left","bottom-left","top-left"],"left",["right","bottom-right","top-right"],"right","center"],8,"center"],"text-anchor":["step",["zoom"],["get","text_anchor"],8,"center"],"text-field":["coalesce",["get","name_en"],["get","name"]],"text-max-width":7},"paint":{"text-color":"hsl(60, 16%, 0%)","text-halo-color":"hsl(60, 5%, 100%)","text-halo-width":1,"text-halo-blur":1}},{"id":"constituencies","type":"line","source":"composite","source-layer":"tmpae1ahcrb","minzoom":5,"maxzoom":14,"layout":{},"paint":{"line-opacity":["interpolate",["exponential",0.86],["zoom"],5,1,8.5,1,14,0],"line-color":"hsl(0, 48%, 31%)","line-width":3}},{"id":"building","type":"fill-extrusion","source":"composite","source-layer":"building","minzoom":12,"layout":{},"paint":{"fill-extrusion-color":"hsl(221, 7%, 53%)","fill-extrusion-height":["get","height"],"fill-extrusion-base":["get","min_height"],"fill-extrusion-opacity":["interpolate",["exponential",0.11],["zoom"],14.5,0,15.5,1]}},{"id":"road","type":"line","source":"composite","source-layer":"road","filter":["match",["get","class"],["motorway","secondary","tertiary","street","primary","service","street_limited","roundabout"],true,false],"layout":{},"paint":{"line-width":["interpolate",["exponential",1.51],["zoom"],0,1,22,80],"line-color":"hsl(0, 0%, 60%)"}},{"id":"walkways","type":"line","source":"composite","source-layer":"road","filter":["match",["get","class"],["path","pedestrian"],true,false],"layout":{},"paint":{"line-color":"hsl(50, 58%, 35%)","line-width":["interpolate",["exponential",1.51],["zoom"],0,1,22,40]}},{"id":"tmp-file","type":"fill","source":"composite","source-layer":"tmp_file","filter":["match",["get","code"],["E02004186"],true,false],"layout":{},"paint":{}}],"created":"2023-10-07T19:32:28.067Z","modified":"2026-03-29T18:08:38.350Z","id":"clngfmm8z040f01r7a6r7fyfy","owner":"tomlinney","visibility":"public","protected":false,"draft":false};
+
+    // ── Initialise map (non-interactive — we drive it manually) ──
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: STYLE,
+      center: [-0.081225, 51.503827],
+      zoom: 15.9,
+      bearing: -18.40,
+      pitch: 67.63,
+      interactive: false,
+      attributionControl: false,
+      preserveDrawingBuffer: true
+    });
+
+    // ================================================================
+    //  Mouse-driven panning
+    //  • When cursor is over the map background → pan slowly toward mouse
+    //  • When cursor enters a scroll → pause panning
+    // ================================================================
+    let mouseX = window.innerWidth  / 2;
+    let mouseY = window.innerHeight / 2;
+    let panPaused = false;
+    let mapReady  = false;
+
+    // Tune these to taste
+    const PAN_MAX_SPEED  = 0.008;   // deg/frame at screen edge
+    const DEAD_ZONE      = 0.01;    // fraction of half-viewport that triggers no pan
+    const PAN_EASE       = 0.06;    // lerp factor — lower = lazier
+
+    let velX = 0, velY = 0;         // current pan velocity (degrees/frame)
+    let mouseInWindow = true;
+
+    document.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    // Stop panning when cursor leaves the browser window
+    document.addEventListener('mouseleave', () => { mouseInWindow = false; velX = 0; velY = 0; });
+    document.addEventListener('mouseenter', () => { mouseInWindow = true;  });
+
+    // Pause panning over scrolls
+    document.querySelectorAll('.scroll-col').forEach(el => {
+      el.addEventListener('mouseenter', () => { panPaused = true;  });
+      el.addEventListener('mouseleave', () => { panPaused = false; });
+    });
+
+    function panTick() {
+      if (mapReady && !panPaused && mouseInWindow) {
+        const hw = window.innerWidth  / 2;
+        const hh = window.innerHeight / 2;
+
+        // Normalise mouse offset: -1 … +1
+        const nx = (mouseX - hw) / hw;
+        const ny = (mouseY - hh) / hh;
+
+        // Apply dead zone
+        const ax = Math.abs(nx) > DEAD_ZONE ? Math.sign(nx) * (Math.abs(nx) - DEAD_ZONE) / (1 - DEAD_ZONE) : 0;
+        const ay = Math.abs(ny) > DEAD_ZONE ? Math.sign(ny) * (Math.abs(ny) - DEAD_ZONE) / (1 - DEAD_ZONE) : 0;
+
+        // Scale speed by zoom so apparent screen velocity stays constant:
+        // each extra zoom level halves the degrees needed to move the same pixels.
+        const speed    = PAN_MAX_SPEED * Math.pow(2, 5 - map.getZoom());
+        const targetVX =  ax * speed;
+        const targetVY = -ay * speed;   // invert: mouse-down → south
+
+        // Smooth velocity
+        velX += (targetVX - velX) * PAN_EASE;
+        velY += (targetVY - velY) * PAN_EASE;
+
+        if (Math.abs(velX) > 1e-6 || Math.abs(velY) > 1e-6) {
+          const c   = map.getCenter();
+          // Bounding box: UK + Republic of Ireland (inc. Shetland & western Ireland)
+          const BOUNDS = { minLng: -8.5, maxLng: 0.1, minLat: 51.5, maxLat: 59.0 };
+          const newLng = Math.max(BOUNDS.minLng, Math.min(BOUNDS.maxLng, c.lng + velX));
+          const newLat = Math.max(BOUNDS.minLat, Math.min(BOUNDS.maxLat, c.lat + velY));
+          // Kill velocity on any clamped axis so the edge doesn't feel sticky
+          if (newLng !== c.lng + velX) velX = 0;
+          if (newLat !== c.lat + velY) velY = 0;
+          map.setCenter([newLng, newLat]);
+        }
+      }
+      drawTitle();
+      drawSubtitle();
+      requestAnimationFrame(panTick);
+    }
+
+    // ── Title pixel shader ──
+    const titleCanvas  = document.getElementById('title-canvas');
+    const titleCtx     = titleCanvas.getContext('2d');
+    const titleH1      = document.querySelector('#header h1');
+    const maskCvs      = document.createElement('canvas');
+    const maskCtx      = maskCvs.getContext('2d');
+    const regionCvs    = document.createElement('canvas');
+    const regionCtx    = regionCvs.getContext('2d');
+
+    const GOLD         = [242, 210, 112];  // #f2d270
+    const BURGUNDY     = [110,  10,  30];  // deep burgundy
+    const LUM_THRESH   = 150;               // 0-255: above = light = burgundy
+
+    let titleFontReady = false;
+    document.fonts.ready.then(() => { titleFontReady = true; });
+
+    function drawTitle() {
+      if (!titleFontReady || !mapReady) return;
+
+      const dpr  = window.devicePixelRatio || 1;
+      const rect = titleH1.getBoundingClientRect();
+      const cw   = Math.round(rect.width  * dpr);
+      const ch   = Math.round(rect.height * dpr);
+      if (cw === 0 || ch === 0) return;
+
+      if (titleCanvas.width !== cw || titleCanvas.height !== ch) {
+        titleCanvas.width  = cw;  titleCanvas.height = ch;
+        titleCanvas.style.width  = rect.width  + 'px';
+        titleCanvas.style.height = rect.height + 'px';
+        maskCvs.width   = cw;  maskCvs.height   = ch;
+        regionCvs.width = cw;  regionCvs.height = ch;
+      }
+
+      const fontSize = parseFloat(getComputedStyle(titleH1).fontSize) * dpr;
+      maskCtx.clearRect(0, 0, cw, ch);
+      maskCtx.font          = `400 ${fontSize}px 'Ghosthey'`;
+      maskCtx.letterSpacing = `${(0.08 * fontSize).toFixed(1)}px`;
+      maskCtx.textAlign     = 'center';
+      maskCtx.textBaseline  = 'middle';
+      maskCtx.fillStyle     = 'white';
+      maskCtx.fillText('Find Land', cw / 2, ch / 2);
+      const maskData = maskCtx.getImageData(0, 0, cw, ch);
+
+      regionCtx.clearRect(0, 0, cw, ch);
+      regionCtx.drawImage(
+        map.getCanvas(),
+        Math.round(rect.left * dpr), Math.round(rect.top * dpr), cw, ch,
+        0, 0, cw, ch
+      );
+      const mapPx = regionCtx.getImageData(0, 0, cw, ch).data;
+
+      const out = titleCtx.createImageData(cw, ch);
+      const md  = maskData.data;
+      const od  = out.data;
+      for (let i = 0; i < md.length; i += 4) {
+        const a = md[i + 3];
+        if (a < 6) continue;
+        const lum = 0.299 * mapPx[i] + 0.587 * mapPx[i + 1] + 0.114 * mapPx[i + 2];
+        const col = lum < LUM_THRESH ? GOLD : BURGUNDY;
+        od[i] = col[0];  od[i+1] = col[1];  od[i+2] = col[2];  od[i+3] = a;
+      }
+      titleCtx.clearRect(0, 0, cw, ch);
+      titleCtx.putImageData(out, 0, 0);
+    }
+
+    // ── Subtitle pixel shader ──
+    const subtitleCanvas = document.getElementById('subtitle-canvas');
+    const subtitleCtx    = subtitleCanvas.getContext('2d');
+    const subtitleEl     = document.querySelector('#header .subtitle');
+    const subMaskCvs     = document.createElement('canvas');
+    const subMaskCtx     = subMaskCvs.getContext('2d');
+    const subRegionCvs   = document.createElement('canvas');
+    const subRegionCtx   = subRegionCvs.getContext('2d');
+
+    function drawSubtitle() {
+      if (!titleFontReady || !mapReady) return;
+
+      const dpr  = window.devicePixelRatio || 1;
+      const rect = subtitleEl.getBoundingClientRect();
+      const cw   = Math.round(rect.width  * dpr);
+      const ch   = Math.round(rect.height * dpr);
+      if (cw === 0 || ch === 0) return;
+
+      if (subtitleCanvas.width !== cw || subtitleCanvas.height !== ch) {
+        subtitleCanvas.width  = cw;  subtitleCanvas.height = ch;
+        subtitleCanvas.style.width  = rect.width  + 'px';
+        subtitleCanvas.style.height = rect.height + 'px';
+        subMaskCvs.width   = cw;  subMaskCvs.height   = ch;
+        subRegionCvs.width = cw;  subRegionCvs.height = ch;
+      }
+
+      const fontSize = parseFloat(getComputedStyle(subtitleEl).fontSize) * dpr;
+      const letterSp = parseFloat(getComputedStyle(subtitleEl).letterSpacing) * dpr;
+      subMaskCtx.clearRect(0, 0, cw, ch);
+      subMaskCtx.font          = `italic 400 ${fontSize}px 'IM Fell DW Pica'`;
+      subMaskCtx.letterSpacing = `${letterSp.toFixed(1)}px`;
+      subMaskCtx.textAlign     = 'center';
+      subMaskCtx.textBaseline  = 'middle';
+      subMaskCtx.fillStyle     = 'white';
+      subMaskCtx.fillText(subtitleEl.textContent.trim(), cw / 2, ch / 2);
+      const maskData = subMaskCtx.getImageData(0, 0, cw, ch);
+
+      subRegionCtx.clearRect(0, 0, cw, ch);
+      subRegionCtx.drawImage(
+        map.getCanvas(),
+        Math.round(rect.left * dpr), Math.round(rect.top * dpr), cw, ch,
+        0, 0, cw, ch
+      );
+      const mapPx = subRegionCtx.getImageData(0, 0, cw, ch).data;
+
+      const out = subtitleCtx.createImageData(cw, ch);
+      const md  = maskData.data;
+      const od  = out.data;
+      for (let i = 0; i < md.length; i += 4) {
+        const a = md[i + 3];
+        if (a < 6) continue;
+        const lum = 0.299 * mapPx[i] + 0.587 * mapPx[i + 1] + 0.114 * mapPx[i + 2];
+        const col = lum < LUM_THRESH ? GOLD : BURGUNDY;
+        od[i] = col[0];  od[i+1] = col[1];  od[i+2] = col[2];  od[i+3] = Math.round(a * 0.75);
+      }
+      subtitleCtx.clearRect(0, 0, cw, ch);
+      subtitleCtx.putImageData(out, 0, 0);
+    }
+
+    map.on('load', () => {
+      mapReady = true;
+      panTick();
+    });
+
+    // Graceful fallback if token is invalid
+    map.on('error', e => {
+      if (e && e.error && e.error.status === 401) {
+        document.getElementById('map').style.background =
+          'linear-gradient(135deg, #3a2a10 0%, #1e1408 40%, #0d0a04 100%)';
+      }
+    });
+  </script>
+</body>
+</html>
