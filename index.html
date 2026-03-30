@@ -105,7 +105,6 @@
     }
     #header .subtitle {
       font-family: 'IM Fell DW Pica', serif;
-      font-style: italic;
       font-size: clamp(1rem, 3vw, 2.3rem);
       color: rgba(230, 195, 100, 0.75);
       margin-top: 0;
@@ -138,7 +137,6 @@
     }
     #footer p {
       font-family: 'IM Fell DW Pica', serif;
-      font-style: italic;
       font-size: 0.82rem;
       color: rgba(220, 180, 80, 0.5);
       text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
@@ -155,11 +153,25 @@
     }
 
     @media (max-width: 768px) {
+      #header {
+        width: calc(100vw - 40px);
+        max-width: calc(100vw - 40px);
+      }
+      #title-wrap {
+        width: 100%;
+      }
       #header h1 {
         font-size: clamp(3rem, 14vw, 5.5rem);
+        white-space: nowrap;
+      }
+      #subtitle-wrap {
+        width: 62vw;
+        max-width: 62vw;
       }
       #header .subtitle {
         font-size: clamp(1.4rem, 6vw, 2.8rem);
+        white-space: normal;
+        width: 100%;
       }
       .seal-row {
         display: grid;
@@ -247,7 +259,6 @@
 
     .seal-label {
       font-family: 'IM Fell DW Pica', serif;
-      font-style: italic;
       font-size: 0.68rem;
       color: rgba(255, 210, 190, 0.85);
       letter-spacing: 0.08em;
@@ -271,7 +282,7 @@
       <canvas id="title-canvas"></canvas>
     </div>
     <div id="subtitle-wrap">
-      <p class="subtitle">Modern tools for a medieval system</p>
+      <p class="subtitle">A modern tool for a feudal market</p>
       <canvas id="subtitle-canvas"></canvas>
     </div>
     <div class="seal-row">
@@ -326,7 +337,7 @@
 
   <!-- ═══ Footer ═══ -->
   <div id="footer">
-    <p>&#10022; &nbsp; Register thy interest below &nbsp; &#10022;</p>
+    <p>&#10022; &nbsp; Remotely Human Resources Limited &nbsp; &#10022;</p>
   </div>
 
   <script>
@@ -529,34 +540,61 @@
       const ch   = Math.round(rect.height * dpr);
       if (cw === 0 || ch === 0) return;
 
-      if (subtitleCanvas.width !== cw || subtitleCanvas.height !== ch) {
-        subtitleCanvas.width  = cw;  subtitleCanvas.height = ch;
+      // Extra canvas pixels above the element so italic ascenders don't clip
+      const fontSize = parseFloat(getComputedStyle(subtitleEl).fontSize) * dpr;
+      const topBuf   = Math.round(fontSize * 0.25);
+      const chTotal  = ch + topBuf;
+
+      if (subtitleCanvas.width !== cw || subtitleCanvas.height !== chTotal) {
+        subtitleCanvas.width  = cw;  subtitleCanvas.height = chTotal;
         subtitleCanvas.style.width  = rect.width  + 'px';
-        subtitleCanvas.style.height = rect.height + 'px';
-        subMaskCvs.width   = cw;  subMaskCvs.height   = ch;
-        subRegionCvs.width = cw;  subRegionCvs.height = ch;
+        subtitleCanvas.style.height = (rect.height + topBuf / dpr) + 'px';
+        subtitleCanvas.style.top    = -(topBuf / dpr) + 'px';
+        subMaskCvs.width   = cw;  subMaskCvs.height   = chTotal;
+        subRegionCvs.width = cw;  subRegionCvs.height = chTotal;
       }
 
-      const fontSize = parseFloat(getComputedStyle(subtitleEl).fontSize) * dpr;
       const letterSp = parseFloat(getComputedStyle(subtitleEl).letterSpacing) * dpr;
-      subMaskCtx.clearRect(0, 0, cw, ch);
-      subMaskCtx.font          = `italic 400 ${fontSize}px 'IM Fell DW Pica'`;
+      subMaskCtx.clearRect(0, 0, cw, chTotal);
+      subMaskCtx.font          = `400 ${fontSize}px 'IM Fell DW Pica'`;
       subMaskCtx.letterSpacing = `${letterSp.toFixed(1)}px`;
       subMaskCtx.textAlign     = 'center';
       subMaskCtx.textBaseline  = 'middle';
       subMaskCtx.fillStyle     = 'white';
-      subMaskCtx.fillText(subtitleEl.textContent.trim(), cw / 2, ch / 2);
-      const maskData = subMaskCtx.getImageData(0, 0, cw, ch);
 
-      subRegionCtx.clearRect(0, 0, cw, ch);
+      // Word-wrap to match CSS: split into lines that fit within canvas width
+      const rawText = subtitleEl.textContent.trim();
+      const words   = rawText.split(/\s+/);
+      const lines   = [];
+      let   current = '';
+      for (const word of words) {
+        const test = current ? current + ' ' + word : word;
+        if (subMaskCtx.measureText(test).width > cw * 0.97 && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = test;
+        }
+      }
+      if (current) lines.push(current);
+
+      // Distribute lines within ch (below the topBuf gap)
+      const lineH = ch / lines.length;
+      lines.forEach((line, i) => {
+        subMaskCtx.fillText(line, cw / 2, topBuf + lineH * i + lineH / 2);
+      });
+      const maskData = subMaskCtx.getImageData(0, 0, cw, chTotal);
+
+      // Sample map pixels from topBuf/dpr above the element's top edge
+      subRegionCtx.clearRect(0, 0, cw, chTotal);
       subRegionCtx.drawImage(
         map.getCanvas(),
-        Math.round(rect.left * dpr), Math.round(rect.top * dpr), cw, ch,
-        0, 0, cw, ch
+        Math.round(rect.left * dpr), Math.round((rect.top - topBuf / dpr) * dpr), cw, chTotal,
+        0, 0, cw, chTotal
       );
-      const mapPx = subRegionCtx.getImageData(0, 0, cw, ch).data;
+      const mapPx = subRegionCtx.getImageData(0, 0, cw, chTotal).data;
 
-      const out = subtitleCtx.createImageData(cw, ch);
+      const out = subtitleCtx.createImageData(cw, chTotal);
       const md  = maskData.data;
       const od  = out.data;
       for (let i = 0; i < md.length; i += 4) {
@@ -566,7 +604,7 @@
         const col = lum < LUM_THRESH ? GOLD : BURGUNDY;
         od[i] = col[0];  od[i+1] = col[1];  od[i+2] = col[2];  od[i+3] = Math.round(a * 0.75);
       }
-      subtitleCtx.clearRect(0, 0, cw, ch);
+      subtitleCtx.clearRect(0, 0, cw, chTotal);
       subtitleCtx.putImageData(out, 0, 0);
     }
 
