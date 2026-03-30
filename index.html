@@ -289,7 +289,7 @@
       <canvas id="subtitle-canvas"></canvas>
     </div>
     <div class="seal-row">
-      <button class="seal-btn" data-pan-x="1" data-pan-y="1">
+      <button class="seal-btn" data-pan-x="-1" data-pan-y="-1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -299,7 +299,7 @@
           </div>
         </div>
       </button>
-      <button class="seal-btn" data-pan-x="-1" data-pan-y="1">
+      <button class="seal-btn" data-pan-x="1" data-pan-y="-1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -309,7 +309,7 @@
           </div>
         </div>
       </button>
-      <button class="seal-btn" data-pan-x="-1" data-pan-y="-1">
+      <button class="seal-btn" data-pan-x="1" data-pan-y="1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -319,7 +319,7 @@
           </div>
         </div>
       </button>
-      <button class="seal-btn" data-pan-x="1" data-pan-y="-1">
+      <button class="seal-btn" data-pan-x="-1" data-pan-y="1">
         <div class="seal">
           <div class="seal-wax"></div>
           <div class="seal-rim"></div>
@@ -391,7 +391,6 @@
       document.addEventListener('mouseleave', () => { mouseInWindow = false; velX = 0; velY = 0; });
       document.addEventListener('mouseenter', () => { mouseInWindow = true;  });
     }
-
     // Wire up seal buttons: on mobile set pan direction, on desktop they're just buttons
     document.querySelectorAll('.seal-btn[data-pan-x]').forEach(btn => {
       if (isMobile) {
@@ -402,9 +401,9 @@
       }
     });
 
-    // Pause panning over scrolls (desktop only)
+    // Pause panning over scrolls and seal buttons (desktop only)
     if (!isMobile) {
-      document.querySelectorAll('.scroll-col').forEach(el => {
+      document.querySelectorAll('.scroll-col, .seal-btn').forEach(el => {
         el.addEventListener('mouseenter', () => { panPaused = true;  });
         el.addEventListener('mouseleave', () => { panPaused = false; });
       });
